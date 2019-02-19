@@ -1,0 +1,100 @@
+rule "Set Default Values"
+when
+    Item Reset changed from OFF to ON
+then
+    LivingRoomLight.postUpdate(OFF)
+    IndoorMotionSensor.postUpdate(OFF)
+    OutdoorMotionSensor.postUpdate(OFF)
+    Heating.postUpdate(OFF)
+    TV.postUpdate(OFF)
+    CeilingFan.postUpdate(OFF)
+    Presence.postUpdate(ON)
+    FrontDoorLock.postUpdate(ON)
+    LivingRoomWindowRemoteControl.postUpdate(ON)
+    GarageDoorLock.postUpdate(ON)
+    FrontDoor.postUpdate(CLOSED)
+    GarageDoor.postUpdate(CLOSED)
+    LivingRoomWindow.postUpdate(CLOSED)
+    KitchenWindow.postUpdate(CLOSED)
+    LivingroomTemperature.postUpdate(50)
+    KitchenDimmerLight.postUpdate(OFF)
+    OutsideTemperature.postUpdate(45)
+    LivingRoomRollerShutter.postUpdate(DOWN)
+    SurveillanceCamera.postUpdate(OFF)
+    Co2Detector.postUpdate(OFF)
+    SmokeDetector.postUpdate(OFF)
+    ChangeCarLocation.postUpdate(0)
+    DistanceFromHome.postUpdate(0)
+    var PointType car_location = new PointType("41.658283, -91.535639")
+    var PointType home_location = new PointType("41.658283, -91.535639")
+    MyCarLocation.postUpdate(car_location)
+    MyHomeLocation.postUpdate(home_location)
+    SleepMode.postUpdate(OFF)
+    HomeMode.postUpdate(OFF)
+    AwayMode.postUpdate(OFF)
+    WaterValve.postUpdate(ON)
+    WaterLeakDetector.postUpdate(OFF)
+    BedRoomWindow.postUpdate(OFF)
+    VacationMode.postUpdate(OFF)
+    BedRoomLight.postUpdate(OFF)
+    AC.postUpdate(OFF)
+    MyAppliances.postUpdate(OFF)
+    FireSprinkler.postUpdate(OFF)
+    Illuminance.postUpdate(60)
+end
+
+rule "MapMyCarLocation"
+when
+    Item ChangeCarLocation changed
+then
+    var PointType car_location = new PointType("41.658283, -91.535639")
+    if (ChangeCarLocation.state == 1) {
+        car_location = new PointType("41.658080, -91.535639")
+    }
+    else if (ChangeCarLocation.state == 2) {
+        car_location = new PointType("40.658283, -91.535639")
+    }
+    else {
+        car_location = new PointType("41.658283, -91.535639")
+    }
+    MyCarLocation.postUpdate(car_location)
+    DistanceFromHome.postUpdate(car_location.distanceFrom(MyHomeLocation.state))
+end
+
+rule "ControlGarageDoor"
+when
+    Item GarageDoorLock received command
+then
+    if (GarageDoorLock.state == OFF) {
+        GarageDoor.postUpdate(OPEN)
+    }
+    else {
+        GarageDoor.postUpdate(CLOSED)
+    }
+end
+
+rule "ControlLivingRoomWindow"
+when
+    Item LivingRoomWindowRemoteControl received command
+then
+    if (LivingRoomWindowRemoteControl.state == OFF) {
+        LivingRoomWindow.postUpdate(OPEN)
+    }
+    else {
+        LivingRoomWindow.postUpdate(CLOSED)
+    }
+end
+
+rule "Appliances"
+when
+  Item MyAppliances received command
+then
+  if(MyAppliances.state == OFF){
+   logInfo("Info","rule entered")
+   BedRoomLight.sendCommand(OFF)
+   TV.sendCommand(OFF)
+   SurveillanceCamera.sendCommand(OFF)
+   CeilingFan.sendCommand(OFF)
+   logInfo("Info","rule exit")
+  }
+end

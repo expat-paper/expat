@@ -1,0 +1,824 @@
+import java.util.concurrent.locks.ReentrantLock
+import org.eclipse.smarthome.core.types.State
+
+val ReentrantLock lock  = new ReentrantLock()
+
+val policy_check = [String my_rule_name, GenericItem my_triggered_event_device, State my_triggered_event, String my_trigger_type, GenericItem my_action_device, State my_action_command |
+
+	val action_device = my_action_device
+	val action_command = my_action_command
+	val WaterLeakDetector_state = if (WaterLeakDetector == my_action_device) my_action_command else WaterLeakDetector.state
+	val SmokeDetector_state = if (SmokeDetector == my_action_device) my_action_command else SmokeDetector.state
+	val LivingRoomWindowRemoteControl_state = if (LivingRoomWindowRemoteControl == my_action_device) my_action_command else LivingRoomWindowRemoteControl.state
+	val BedRoomLight_state = if (BedRoomLight == my_action_device) my_action_command else BedRoomLight.state
+	val LivingRoomLight_state = if (LivingRoomLight == my_action_device) my_action_command else LivingRoomLight.state
+	val BedRoomWindow_state = if (BedRoomWindow == my_action_device) my_action_command else BedRoomWindow.state
+	val SleepMode_state = if (SleepMode == my_action_device) my_action_command else SleepMode.state
+	val SurveillanceCamera_state = if (SurveillanceCamera == my_action_device) my_action_command else SurveillanceCamera.state
+	val VacationMode_state = if (VacationMode == my_action_device) my_action_command else VacationMode.state
+	val FrontDoorLock_state = if (FrontDoorLock == my_action_device) my_action_command else FrontDoorLock.state
+	val Heating_state = if (Heating == my_action_device) my_action_command else Heating.state
+	val AC_state = if (AC == my_action_device) my_action_command else AC.state
+	val HomeMode_state = if (HomeMode == my_action_device) my_action_command else HomeMode.state
+	val CeilingFan_state = if (CeilingFan == my_action_device) my_action_command else CeilingFan.state
+
+	val PI1 = ! ( action_device == WaterValve && action_command == OFF && WaterLeakDetector_state == ON ) || ! ( SmokeDetector_state == ON )
+	val PI2 = ! ( LivingRoomWindowRemoteControl_state == ON && BedRoomLight_state == ON && LivingRoomLight_state == ON && BedRoomWindow_state == ON ) || ! ( SleepMode_state == ON )
+	val PI3 = ! ( true ) || ! ( SurveillanceCamera_state == OFF )
+	val PI4 = ! ( VacationMode_state == ON ) || ! ( BedRoomWindow_state == ON && BedRoomLight_state == ON )
+	val PI5 = ! ( true ) || ! ( FrontDoorLock_state == OFF )
+	val PI6 = ! ( Heating_state == ON ) || ! ( AC_state == ON )
+	val PI7 = ! ( HomeMode_state == OFF ) || ( CeilingFan_state == OFF && LivingRoomWindowRemoteControl_state == OFF && BedRoomLight_state == OFF && LivingRoomLight_state == OFF && BedRoomWindow_state == OFF )
+	val PI8 = ! ( LivingRoomWindowRemoteControl_state == ON ) || ( AC_state == OFF && Heating_state == OFF )
+
+	val permission = PI1 && PI2 && PI3 && PI4 && PI5 && PI6 && PI7 && PI8 
+
+	logInfo("PolicyEnforcement", "Action " + my_action_command + ", on device " + my_action_device.getName() + if(permission) " permitted!" else " denied!")
+
+	return permission
+]
+
+/* This is the description for the first two rules. The first rule will work like following: Whenever Smoke Detector detects smoke, a water valve will be open(ON). And the second rule is like : when Water leak detector detects any water, it will close the water valve. So, thess rules have some impact on each another like in a incident of a smoke, the water valve will remain off due to the water leak detector. So, we can write a policy like " whenever the smoke-detector detects smoke, the water valve must be opened. This policy can nullify the cross-app issue." 
+[Derived from Soteria] 
+
+[CAI threat(implicit) handling]
+*/
+
+rule " R1: WaterValve changes with Smoke Detection"
+when
+  Item SmokeDetector received command
+then
+	val rule_name = ' r1: watervalve changes with smoke detection'
+	val triggered_event_device = SmokeDetector
+	val trigger_type = 'command'
+	val triggered_event = NULL
+  logInfo("Info","rule entered")
+  if (SmokeDetector.state == ON){
+	if(LivingroomTemperature.state > 135){
+    		lock.lock()
+    		try {
+    			if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, FireSprinkler, ON)) {
+		    		FireSprinkler.sendCommand(ON)
+    			}
+    		} finally{
+    			lock.unlock()
+    		}
+ 	}
+  }
+  else{
+    lock.lock()
+    try {
+    	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, FireSprinkler, OFF)) {
+		    FireSprinkler.sendCommand(OFF)
+    	}
+    } finally{
+    	lock.unlock()
+    }
+  }
+  logInfo("Info","rule exit")
+end
+
+rule "R2: WaterValve changes with Water Leak Detector"
+when
+  Item WaterLeakDetector received command
+then
+	val rule_name = 'r2: watervalve changes with water leak detector'
+	val triggered_event_device = WaterLeakDetector
+	val trigger_type = 'command'
+	val triggered_event = NULL
+  if (WaterLeakDetector.state == ON){
+    logInfo("Info","rule entered")
+    lock.lock()
+    try {
+    	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, WaterValve, OFF)) {
+		    WaterValve.sendCommand(OFF)
+    	}
+    } finally{
+    	lock.unlock()
+    }
+    logInfo("Info","rule exit")
+  }
+end
+
+/* the rule can be described as: When the temperature is above 75 degree, open the window. This will be really great when the person is awake, but think about the situation when he is in sleep mode? This will open the window that can results in a burglary. So, we can enfore a policy here that whenever the sleep mode is on, windows cannot be opened.
+[Got the idea from ContexIoT]
+
+[Contextual/Conditional case handling]/ [Restricting rules from being executed under some special condition]
+*/
+
+/*
+rule "R3: WindowController according to temperature"
+when
+  Item LivingroomTemperature received update
+then
+	val rule_name = 'r3: windowcontroller according to temperature'
+	val triggered_event_device = LivingroomTemperature
+	val trigger_type = 'update'
+	val triggered_event = NULL
+  if (LivingroomTemperature.state > 75){
+    logInfo("Info","rule entered")
+    lock.lock()
+    try {
+    	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, LivingRoomWindowRemoteControl, ON)) {
+		    LivingRoomWindowRemoteControl.sendCommand(ON)
+    	}
+    } finally{
+    	lock.unlock()
+    }
+    logInfo("Info","rule exit")
+  }
+  else{
+    lock.lock()
+    try {
+    	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, LivingRoomWindowRemoteControl, OFF)) {
+		    LivingRoomWindowRemoteControl.sendCommand(OFF)
+    	}
+    } finally{
+    	lock.unlock()
+    }
+  }
+end
+*/
+/* This rules can be described as: 
+A user don't want to miss his favorite TV show that telecasts every sunday at 10 PM. So, he wrote a rule to turn on the TV at that time.
+He added another rule like: When TV goes on, the window of living room will be opened.
+This is benign when a person sits in the living room to watch TV. But thinks of a scenerio that for some reason he is not at the home or sleeping.
+So, at that moment the window will be opened and a burgler can easily enter the house.
+
+[CAI threat(explicit) handling]
+
+*/
+
+rule "R4: TV turns on at specific time"
+when 
+  Time cron "0 0 22 ? * SUN"
+then
+	val rule_name = 'r4: tv turns on at specific time'
+	val triggered_event_device = LivingroomTemperature
+	val trigger_type = 'update'
+	val triggered_event = NULL
+  logInfo("Info","rule entered")
+  lock.lock()
+  try {
+  	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, TV, ON)) {
+		  TV.sendCommand(ON)
+  	}
+  } finally{
+  	lock.unlock()
+  }
+  logInfo("Info","rule exit")
+end
+
+
+rule " R5: LivingRoomWindow changes state with TV on/off"
+when
+  Item TV received command
+then
+	val rule_name = ' r5: livingroomwindow changes state with tv on/off'
+	val triggered_event_device = TV
+	val trigger_type = 'command'
+	val triggered_event = NULL
+  logInfo("Info","rule entered")
+  if (TV.state == ON){
+    
+    lock.lock()
+    try {
+    	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, LivingRoomWindowRemoteControl, ON)) {
+		    LivingRoomWindowRemoteControl.sendCommand(ON)
+    	}
+    } finally{
+    	lock.unlock()
+    }
+
+  }
+  else{
+    lock.lock()
+    try {
+    	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, LivingRoomWindowRemoteControl, OFF)) {
+		    LivingRoomWindowRemoteControl.sendCommand(OFF)
+    	}
+    } finally{
+    	lock.unlock()
+    }
+  }
+  logInfo("Info","rule exit")
+end
+
+/*This is a dummy rule that is used just for automation purpose, nothing related to our work*/
+/*
+rule "Window state update according to controller"
+when
+  Item LivingRoomWindowRemoteControl received command
+then
+	val rule_name = 'window state update according to controller'
+	val triggered_event_device = LivingRoomWindowRemoteControl
+	val trigger_type = 'command'
+	val triggered_event = NULL
+  if (LivingRoomWindowRemoteControl.state == ON){
+    lock.lock()
+    try {
+    	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, LivingRoomWindow, OPEN)) {
+		    LivingRoomWindow.postUpdate(OPEN)
+    	}
+    } finally{
+    	lock.unlock()
+    }
+  }
+  else{
+    lock.lock()
+    try {
+    	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, LivingRoomWindow, CLOSED)) {
+		    LivingRoomWindow.postUpdate(CLOSED)
+    	}
+    } finally{
+    	lock.unlock()
+    }
+  }
+end
+*/
+/* The rule can be describes as: When the temperature is above 80, the Ceiling fan will turn on. A user can write such an app to avoid not turning on the ceiling fan each time individually. But it will turn on no matter when someone is in home or not. So we can write a polciy so that when no one is home, the fan will not turn on which can save some electricity bill.
+[Selfmade]
+
+[Contextual/Conditional case handling]/ [Restricting rules from being executed under some special condition]
+*/
+
+rule "R9: Ceiling fan on"
+when
+  Item LivingroomTemperature received update
+then
+	val rule_name = 'r9: ceiling fan on'
+	val triggered_event_device = LivingroomTemperature
+	val trigger_type = 'update'
+	val triggered_event = NULL
+  if(LivingroomTemperature.state > 80){
+	logInfo("Info","rule entered")
+	lock.lock()
+	try {
+		if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, CeilingFan, ON)) {
+			CeilingFan.sendCommand(ON)
+		}
+	} finally{
+		lock.unlock()
+	}
+	logInfo("Info","rule exit")
+  }
+  else{
+	lock.lock()
+	try {
+		if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, CeilingFan, OFF)) {
+			CeilingFan.sendCommand(OFF)
+		}
+	} finally{
+		lock.unlock()
+	}
+  }
+end
+
+/* 
+
+The rules are like that: "Every weekdays at 6AM, the bedroom be opened and at 8AM, window will be closed". From the rule, we can assume that the user gets up from bed at 6AM and leave home for work at 8 AM. So, this automation rules help him to keep the windows open at that particular time.
+
+Now, think like a situation where the user is in vacation. May be he want to sleep more but opening windows will hamper his sleep. The worse situation will happen if he go somewhere out in a vacation, the this automation to open windows will create a chance for a theif to sniff in. Besides, if it rains at that time, it may create a hazard.
+
+So, the user can enforce a policy like "when in vacation mode, the berroom window will never open", using this policy, he can easily avoid these problems.
+[BinCheng]
+
+[Contextual/Conditional case handling]/ [Restricting rules from being executed under some special condition]
+
+*/
+
+
+rule "R6: Bedroom window open at specific time"
+when
+  Time cron "0 0 6 ? * MON,TUE,WED,THU,FRI"
+then
+	val rule_name = 'r6: bedroom window open at specific time'
+	val triggered_event_device = LivingroomTemperature
+	val trigger_type = 'update'
+	val triggered_event = NULL
+  logInfo("Info","rule entered")
+  lock.lock()
+  try {
+  	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, BedRoomWindow, ON)) {
+		  BedRoomWindow.sendCommand(ON)
+  	}
+  } finally{
+  	lock.unlock()
+  }
+  logInfo("Info","rule exit")
+end
+
+rule "R7: Bedroom window closed at specific time"
+when 
+  Time cron "0 0 8 ? * MON,TUE,WED,THU,FRI"
+then
+	val rule_name = 'r7: bedroom window closed at specific time'
+	val triggered_event_device = LivingroomTemperature
+	val trigger_type = 'update'
+	val triggered_event = NULL
+  logInfo("Info","rule entered")
+  lock.lock()
+  try {
+  	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, BedRoomWindow, OFF)) {
+		  BedRoomWindow.sendCommand(OFF)
+  	}
+  } finally{
+  	lock.unlock()
+  }
+  logInfo("Info","rule exit")
+end
+
+/*
+The rule is : At evening (6 PM), the light will turn on automatically. 
+
+This could be very bad, if he is taking a nap at that time.
+
+So, he can use a policy like, while in sleep mode, don't let the light turn on.
+[BinCheng]
+
+[Contextual/Conditional case handling]/ [Restricting rules from being executed under some special condition]
+
+*/
+
+rule "R8: lights_on_EVENING"
+when
+  Time cron "0 0 18 * * ?"  
+then
+	val rule_name = 'r8: lights_on_evening'
+	val triggered_event_device = LivingroomTemperature
+	val trigger_type = 'update'
+	val triggered_event = NULL
+  logInfo("Info","rule entered")
+  lock.lock()
+  try {
+  	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, BedRoomLight, ON)) {
+		  BedRoomLight.sendCommand(ON)
+  	}
+  } finally{
+  	lock.unlock()
+  }
+  logInfo("Info","rule exit")
+end
+
+
+/* An user download a rule from a untrusted source to close livingroom light off at the time of sleeping (when sleeping mode on). But maliciously, the rule also unlock the front door that the user is not aware of.
+
+A policy like at any time, the front door cannot be unlocked by rules can prevent this hazard.
+
+[SelfMade]
+
+[Malicious app from untrusted source]
+*/
+
+rule "R10: light off when sleeping"
+when
+  Item SleepMode received command
+then
+	val rule_name = 'r10: light off when sleeping'
+	val triggered_event_device = SleepMode
+	val trigger_type = 'command'
+	val triggered_event = NULL
+  
+  if(SleepMode.state == ON){
+    logInfo("Info","rule entered")
+    lock.lock()
+    try {
+    	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, LivingRoomLight, OFF)) {
+		    LivingRoomLight.sendCommand(OFF)
+    	}
+    } finally{
+    	lock.unlock()
+    }
+    lock.lock()
+    try {
+    	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, FrontDoorLock, OFF)) {
+		    FrontDoorLock.sendCommand(OFF)
+    	}
+    } finally{
+    	lock.unlock()
+    }
+    logInfo("Info","rule exit")
+  }
+  
+end
+
+
+/*
+The rule is like: When in Sleep Mode, all the appliances will turn off. User can create a group of appliances (like light, fan, SurveillanceCamera, TV, Oven etc.).
+
+But for safety purpose, the SurveillanceCamera should be on always. So, a policy can be enforced so that at any situation the SurveillanceCamera will not turn off
+[got the idea from IoTGuard]
+
+[Contextual/Conditional case handling]/ [Restricting rules from being executed under some special condition]
+
+*/
+
+rule "R15: All Appliances goes off when in sleep mode"
+when
+  Item SleepMode received command
+then
+	val rule_name = 'r15: all appliances goes off when in sleep mode'
+	val triggered_event_device = SleepMode
+	val trigger_type = 'command'
+	val triggered_event = NULL
+  if(SleepMode.state == ON){
+   logInfo("Info","rule entered")
+   lock.lock()
+   try {
+   	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, MyAppliances, OFF)) {
+		   MyAppliances.sendCommand(OFF)
+   	}
+   } finally{
+   	lock.unlock()
+   }
+   logInfo("Info","rule exit")
+  }
+end
+
+
+rule "R15:a Appliances"
+when
+  Item MyAppliances received command
+then
+	val rule_name = 'r15:a appliances'
+	val triggered_event_device = MyAppliances
+	val trigger_type = 'command'
+	val triggered_event = NULL
+  if(MyAppliances.state == OFF){
+   logInfo("Info","rule entered")
+   lock.lock()
+   try {
+   	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, BedRoomLight, OFF)) {
+		   BedRoomLight.sendCommand(OFF)
+   	}
+   } finally{
+   	lock.unlock()
+   }
+   lock.lock()
+   try {
+   	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, TV, OFF)) {
+		   TV.sendCommand(OFF)
+   	}
+   } finally{
+   	lock.unlock()
+   }
+   lock.lock()
+   try {
+   	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, SurveillanceCamera, OFF)) {
+		   SurveillanceCamera.sendCommand(OFF)
+   	}
+   } finally{
+   	lock.unlock()
+   }
+   lock.lock()
+   try {
+   	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, CeilingFan, OFF)) {
+		   CeilingFan.sendCommand(OFF)
+   	}
+   } finally{
+   	lock.unlock()
+   }
+   logInfo("Info","rule exit")
+  }
+end
+
+
+/*
+Suppose, the user write two rules for turning on AC and Heater according to the temperature. Let we assume that, user love to be in temperature around 70. So, if the temperature is more that 75, the AC turns on and if the temperature is less than 65 the Heater turns on. Now, lets assume a situation that , one day the user suffering from fever and he wants a warmer temperature, so he turn on the heater to make the temperature more than 75 (eg. 78). Then, according to the rule, the AC will turn on which is not expected at that moment. Same thing will also happen if someday he want to make his room temperature below 65, the heater will turn on.
+	val rule_name = 'r15:a appliances'
+	val triggered_event_device = MyAppliances
+	val trigger_type = 'command'
+	val triggered_event = NULL
+
+So, we can write a policy that AC and Heater cannot be on simultaneously to avoid these situations.
+[got the idea from IoTGuard]
+
+[CAI threat(implicit) handling]
+*/
+
+
+rule "R13: AC on according to temperature"
+when
+  Item LivingroomTemperature received update
+then
+	val rule_name = 'r13: ac on according to temperature'
+	val triggered_event_device = LivingroomTemperature
+	val trigger_type = 'update'
+	val triggered_event = NULL
+  logInfo("Info","rule entered")
+  if(LivingroomTemperature.state > 75){
+	lock.lock()
+	try {
+		if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, AC, ON)) {
+			AC.sendCommand(ON)
+		}
+	} finally{
+		lock.unlock()
+	}
+  }
+  logInfo("Info","rule entered")
+end
+
+rule "R14: Heater on according to temperature"
+when
+  Item LivingroomTemperature received update
+then
+	val rule_name = 'r14: heater on according to temperature'
+	val triggered_event_device = LivingroomTemperature
+	val trigger_type = 'update'
+	val triggered_event = NULL
+  if(LivingroomTemperature.state < 65){
+	logInfo("Info","rule entered")
+	lock.lock()
+	try {
+		if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, Heating, ON)) {
+			Heating.sendCommand(ON)
+		}
+	} finally{
+		lock.unlock()
+	}
+	logInfo("Info","rule entered")
+  }
+end
+
+/*
+The following two rules are: When the illuminance is under a certain LUX then the light will turn on and When the illuminance is over a certain LUX, then the light will turn off.
+	val rule_name = 'r14: heater on according to temperature'
+	val triggered_event_device = LivingroomTemperature
+	val trigger_type = 'update'
+	val triggered_event = NULL
+
+
+Here following scenario can arrive: Suppose, the illuminance is now 35 Lux which is under 40 Lux and that's why the light will turn on. And as the light turns on, the illuminance will increase and lets say it's increased to 120 Lux which is greater than 100 Lux. So, now according to our second rule, the light will turn off.
+
+Then again the illuminance will be 35 that will turn the light on and thats how a loop will go on turning the lights on and off which is clearly not desired.
+	val rule_name = 'r14: heater on according to temperature'
+	val triggered_event_device = LivingroomTemperature
+	val trigger_type = 'update'
+	val triggered_event = NULL
+
+
+I am thinking a policy for that but still did not find any.
+
+[got the idea from CrossApp paper]
+
+[CAI threat(implicit) handling]
+*/
+rule "R11:Lights on according to illuminance"
+when
+  Item Illuminance received update
+then
+	val rule_name = 'r11:lights on according to illuminance'
+	val triggered_event_device = Illuminance
+	val trigger_type = 'update'
+	val triggered_event = NULL
+  if(Illuminance.state < 40){
+    lock.lock()
+    try {
+    	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, BedRoomLight, ON)) {
+		    BedRoomLight.sendCommand(ON)
+    	}
+    } finally{
+    	lock.unlock()
+    }
+  }
+end
+
+
+rule "R12: Lights off according to illuminance"
+when
+  Item Illuminance received update
+then
+	val rule_name = 'r12: lights off according to illuminance'
+	val triggered_event_device = Illuminance
+	val trigger_type = 'update'
+	val triggered_event = NULL
+  if(Illuminance.state < 100 ){
+    lock.lock()
+    try {
+    	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, BedRoomLight, OFF)) {
+		    BedRoomLight.sendCommand(OFF)
+    	}
+    } finally{
+    	lock.unlock()
+    }
+  }
+end
+
+
+// open-garage-door-when-car-in-40
+rule "R17: Garage door open automatically"
+when
+    Item DistanceFromHome changed
+then
+	val rule_name = 'r17: garage door open automatically'
+	val triggered_event_device = DistanceFromHome
+	val trigger_type = 'changed'
+	val triggered_event = NULL
+    if (DistanceFromHome.state < 150) {
+        if(GarageDoor.state == CLOSED) {
+            lock.lock()
+            try {
+            	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, GarageDoorLock, OFF)) {
+		            GarageDoorLock.sendCommand(OFF)
+            	}
+            } finally{
+            	lock.unlock()
+            }
+        }
+    }
+end
+
+// unlock-frontdoor-when-garagedoor-is-open
+rule "R18: Front door open according to garage door"
+when
+    Item GarageDoor received update
+then
+	val rule_name = 'r18: front door open according to garage door'
+	val triggered_event_device = GarageDoor
+	val trigger_type = 'update'
+	val triggered_event = NULL
+    logInfo("Info","rule entered")
+    if(GarageDoor.state == OPEN) {
+        lock.lock()
+        try {
+        	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, FrontDoorLock, OFF)) {
+		        FrontDoorLock.sendCommand(OFF)
+        	}
+        } finally{
+        	lock.unlock()
+        }
+    }
+    logInfo("Info","rule exit")
+end
+
+// open-living-room-window-when-I-am-home
+rule "R16: Front door unlocked by getting motion"
+when
+    Item IndoorMotionSensor received command
+then
+	val rule_name = 'r16: front door unlocked by getting motion'
+	val triggered_event_device = IndoorMotionSensor
+	val trigger_type = 'command'
+	val triggered_event = NULL
+    logInfo("Info","rule entered")
+    if (IndoorMotionSensor.state == ON) {
+        lock.lock()
+        try {
+        	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, FrontDoorLock, OFF)) {
+		        FrontDoorLock.sendCommand(OFF)
+        	}
+        } finally{
+        	lock.unlock()
+        }
+    }
+    logInfo("Info","rule exit")
+end
+
+rule "MapMyCarLocation"
+when
+    Item ChangeCarLocation changed
+then
+	val rule_name = 'mapmycarlocation'
+	val triggered_event_device = ChangeCarLocation
+	val trigger_type = 'changed'
+	val triggered_event = NULL
+    var PointType car_location = new PointType("41.658283, -91.535639")
+    if (ChangeCarLocation.state == 1) {
+        car_location = new PointType("41.658080, -91.535639")
+    }
+    else if (ChangeCarLocation.state == 2) {
+        car_location = new PointType("40.658283, -91.535639")
+    }
+    else {
+        car_location = new PointType("41.658283, -91.535639")
+    }
+    lock.lock()
+    try {
+    	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, MyCarLocation, car_location)) {
+		    MyCarLocation.postUpdate(car_location)
+    	}
+    } finally{
+    	lock.unlock()
+    }
+    lock.lock()
+    try {
+    	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, DistanceFromHome, car_location.distanceFrom(MyHomeLocation.state))) {
+		    DistanceFromHome.postUpdate(car_location.distanceFrom(MyHomeLocation.state))
+    	}
+    } finally{
+    	lock.unlock()
+    }
+end
+
+rule "ControlGarageDoor"
+when
+    Item GarageDoorLock received command
+then
+	val rule_name = 'controlgaragedoor'
+	val triggered_event_device = GarageDoorLock
+	val trigger_type = 'command'
+	val triggered_event = NULL
+    logInfo("Info","rule entered")
+    if (GarageDoorLock.state == OFF) {
+        lock.lock()
+        try {
+        	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, GarageDoor, OPEN)) {
+		        GarageDoor.postUpdate(OPEN)
+        	}
+        } finally{
+        	lock.unlock()
+        }
+    }
+    else {
+        lock.lock()
+        try {
+        	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, GarageDoor, CLOSED)) {
+		        GarageDoor.postUpdate(CLOSED)
+        	}
+        } finally{
+        	lock.unlock()
+        }
+    }
+    logInfo("Info","rule exit")
+end
+
+/*
+rule "All Appliances goes of when in sleep mode"
+when
+  Item SleepMode received command
+then
+	val rule_name = 'all appliances goes of when in sleep mode'
+	val triggered_event_device = SleepMode
+	val trigger_type = 'command'
+	val triggered_event = NULL
+  if(SleepMode.state == ON){
+    Appllock.lock()
+    Appltry {
+    Appl	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, i, OFF)) {
+		    Appliances.members.forEach[ i | i.sendCommand(OFF) ]
+    Appl	}
+    Appl} finally{
+    Appl	lock.unlock()
+    Appl}
+  }
+end
+*/
+
+/*
+rule "time trigger"
+when
+  Time cron "0/45 8-20 22 * * ?"
+then
+	val rule_name = 'time trigger'
+	val triggered_event_device = SleepMode
+	val trigger_type = 'command'
+	val triggered_event = NULL
+  lock.lock()
+  try {
+  	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, TV, ON)) {
+		  TV.sendCommand(ON)
+  	}
+  } finally{
+  	lock.unlock()
+  }
+end
+
+rule "time trigger"
+when
+  Time cron "0/55 22-40 22 * * ?"
+then
+	val rule_name = 'time trigger'
+	val triggered_event_device = SleepMode
+	val trigger_type = 'command'
+	val triggered_event = NULL
+  lock.lock()
+  try {
+  	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, SleepMode, ON)) {
+		  SleepMode.sendCommand(ON)
+  	}
+  } finally{
+  	lock.unlock()
+  }
+end*/
+/*
+rule "time trigger"
+when
+  Time cron "0 0/3 * * * ?"
+then
+	val rule_name = 'time trigger'
+	val triggered_event_device = SleepMode
+	val trigger_type = 'command'
+	val triggered_event = NULL
+  lock.lock()
+  try {
+  	if (policy_check.apply(rule_name, triggered_event_device, triggered_event, trigger_type, WaterLeakDetector, OFF)) {
+		  WaterLeakDetector.sendCommand(OFF)
+  	}
+  } finally{
+  	lock.unlock()
+  }
+end
+*/
+  
+

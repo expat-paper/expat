@@ -1,0 +1,190 @@
+// R1: WaterValve changes with Smoke Detection
+rule "R1"
+when
+  Item SmokeDetector received command
+then
+  logInfo("Info","rule entered")
+  if (SmokeDetector.state == ON){
+	if(LivingroomTemperature.state > 135){
+    		FireSprinkler.sendCommand(ON)
+ 	}
+  }
+  else{
+    FireSprinkler.sendCommand(OFF)
+  }
+  logInfo("Info","rule exit")
+end
+
+// R2: WaterValve changes with Water Leak Detector
+rule "R2"
+when
+  Item WaterLeakDetector received command
+then
+  if (WaterLeakDetector.state == ON){
+    logInfo("Info","rule entered")
+    WaterValve.sendCommand(OFF)
+    logInfo("Info","rule exit")
+  }
+end
+
+// R3: TV turns on at specific time
+rule "R3"
+when 
+  Time cron "0 0 22 ? * SUN"
+then
+  logInfo("Info","rule entered")
+  TV.sendCommand(ON)
+  logInfo("Info","rule exit")
+end
+
+// R4: LivingRoomWindow changes state with TV on/off
+rule "R4"
+when
+  Item TV received command
+then
+  logInfo("Info","rule entered")
+  if (TV.state == ON){
+    
+    LivingRoomWindowRemoteControl.sendCommand(ON)
+
+  }
+  else{
+    LivingRoomWindowRemoteControl.sendCommand(OFF)
+  }
+  logInfo("Info","rule exit")
+end
+
+// R5: Bedroom window open at specific time
+rule "R5"
+when
+  Time cron "0 0 6 ? * MON,TUE,WED,THU,FRI"
+then
+  logInfo("Info","rule entered")
+  BedRoomWindow.sendCommand(ON)
+  logInfo("Info","rule exit")
+end
+
+// R6: Bedroom window closed at specific time
+rule "R6"
+when 
+  Time cron "0 0 8 ? * MON,TUE,WED,THU,FRI"
+then
+  logInfo("Info","rule entered")
+  BedRoomWindow.sendCommand(OFF)
+  logInfo("Info","rule exit")
+end
+
+// R7: lights_on_EVENING
+rule "R7"
+when
+  Time cron "0 0 18 * * ?"  
+then
+  logInfo("Info","rule entered")
+  BedRoomLight.sendCommand(ON)
+  logInfo("Info","rule exit")
+end
+
+// R8: Ceiling fan on
+rule "R8"
+when
+  Item LivingroomTemperature received update
+then
+  if(LivingroomTemperature.state > 80){
+	logInfo("Info","rule entered")
+	CeilingFan.sendCommand(ON)
+	logInfo("Info","rule exit")
+  }
+  else{
+	CeilingFan.sendCommand(OFF)
+  }
+end
+
+// R9: light off when sleeping
+rule "R9"
+when
+  Item SleepMode received command
+then
+  
+  if(SleepMode.state == ON){
+    logInfo("Info","rule entered")
+    LivingRoomLight.sendCommand(OFF)
+    FrontDoorLock.sendCommand(OFF)
+    logInfo("Info","rule exit")
+  }
+  
+end
+
+// R10: AC on according to temperature
+rule "R10"
+when
+  Item LivingroomTemperature received update
+then
+  logInfo("Info","rule entered")
+  if(LivingroomTemperature.state > 75){
+	AC.sendCommand(ON)
+  }
+  logInfo("Info","rule entered")
+end
+
+// R11: Heater on according to temperature
+rule "R11"
+when
+  Item LivingroomTemperature received update
+then
+  if(LivingroomTemperature.state < 65){
+	logInfo("Info","rule entered")
+	Heating.sendCommand(ON)
+	logInfo("Info","rule entered")
+  }
+end
+
+// R12: All Appliances goes off when in sleep mode
+rule "R12"
+when
+  Item SleepMode received command
+then
+  if(SleepMode.state == ON){
+   logInfo("Info","rule entered")
+   MyAppliances.sendCommand(OFF)
+   logInfo("Info","rule exit")
+  }
+end
+
+// R13: Front door unlocked by getting motion
+rule "R13"
+when
+    Item IndoorMotionSensor received command
+then
+    logInfo("Info","rule entered")
+    if (IndoorMotionSensor.state == ON) {
+        FrontDoorLock.sendCommand(OFF)
+    }
+    logInfo("Info","rule exit")
+end
+
+// R14: Garage door open automatically
+rule "R14"
+when
+    Item DistanceFromHome changed
+then
+    if (DistanceFromHome.state < 150) {
+        if(GarageDoor.state == CLOSED) {
+            GarageDoorLock.sendCommand(OFF)
+        }
+    }
+end
+
+// R15: Front door open according to garage door
+rule "R15"
+when
+    Item GarageDoor received update
+then
+    logInfo("Info","rule entered")
+    if(GarageDoor.state == OPEN) {
+        FrontDoorLock.sendCommand(OFF)
+    }
+    logInfo("Info","rule exit")
+end
+
+
+

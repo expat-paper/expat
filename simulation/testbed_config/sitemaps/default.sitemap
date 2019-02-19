@@ -1,0 +1,61 @@
+sitemap default label="My default sitemap"
+{
+    Frame label="Living room" {
+        Switch item=LivingRoomLight label="LivingRoomLight"
+        Setpoint item=LivingroomTemperature minValue=60 maxValue=190 step=1
+        Switch item=LivingRoomWindowRemoteControl label="LivingRoomWindowRemoteControl" icon="remotecontrol"
+        Default item=LivingRoomWindow icon="window"
+        Default item=LivingRoomRollerShutter
+        Default item=TV icon="screen"
+        Switch item=CeilingFan
+    }
+
+    Frame label="Bed room" {
+        Switch item=BedRoomLight label="BedRoomLight"
+        Switch item=BedRoomWindow label="BedRoomWindow" mappings=[OFF="Closed",ON="Open"]
+    }
+    Frame label="Kitchen" {
+        Slider item=KitchenDimmerLight switchSupport
+        Default item=KitchenWindow icon="window"
+    }
+    Frame label="Home" {
+        Switch item=Presence
+        Default item=Heating label="Heating"
+        Default item=FrontDoor label="FrontDoor"
+        Switch item=FrontDoorLock label="FrontDoorLock" icon="doorlock" mappings=[OFF="Unlocked",ON="Locked"]
+        Switch item=GarageDoorLock label="GarageDoorLock" icon="remotecontrol" mappings=[OFF="Unlocked",ON="Locked"]
+        Default item=GarageDoor label="GarageDoor"
+	Switch item=WaterValve label="WaterValve"
+	Switch item=WaterLeakDetector label="WaterLeakDetector" mappings=[OFF="Dry",ON="Wet"]
+	Switch item=AC label="AC"
+	Setpoint item=Illuminance minValue=0 maxValue=100 step=5
+	Switch item=MyAppliances label="MyAppliances"
+	Switch item=FireSprinkler label="FireSprinkler"
+    }
+
+    Frame label="Mode" {
+	Switch item=SleepMode
+	Switch item=HomeMode
+	Switch item=AwayMode
+	Switch item=VacationMode
+    }
+    Frame label="Security/Safety" {
+        Switch item=SurveillanceCamera label="SurveillanceCamera"
+        Switch item=Co2Detector label="Co2Detector" mappings=[OFF="Not Detected",ON="Detected"]
+        Switch item=SmokeDetector label="SmokeDetector" mappings=[OFF="Not Detected",ON="Detected"]
+    }
+    Frame label="Car location" {
+	    Default item=DistanceFromHome icon="distance"
+        Mapview item=MyCarLocation height=6 icon="mycar"
+	}
+    Frame label="Other" {
+        Text item=CurrentDate
+        Text item=OutsideTemperature label="OutsideTemperature" icon="temperature"
+        Switch item=IndoorMotionSensor label="IndoorMotionSensor" mappings=[OFF="No Motion",ON="Motion"]
+        Switch item=OutdoorMotionSensor label="OutdoorMotionSensor" mappings=[OFF="No Motion",ON="Motion"]
+    }
+    Frame label="Settings" {
+        Switch item=Reset label="Reset" icon="settings"
+        Selection item=ChangeCarLocation label="ChangeCarLocation" mappings=[0="Home", 1="Approaching", 2="Work"] icon="settings"
+    }
+}

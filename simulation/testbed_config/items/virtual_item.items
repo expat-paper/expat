@@ -1,0 +1,41 @@
+Switch Reset "Reset all devices to the intial setup"
+Number ChangeCarLocation "This is just for simulation"
+Switch LivingRoomLight "LivingRoomLight"
+Switch IndoorMotionSensor "IndoorMotionSensor" <motion>
+Switch OutdoorMotionSensor "OutdoorMotionSensor" <motion>
+Switch Heating "Heating" <heating>
+Switch TV "TV" <screen>
+Switch CeilingFan "CeilingFan" <fan_ceiling>
+Switch GarageDoorLock "GarageDoorLock" <remotecontrol>
+Switch Presence "Presence" <presence>
+Switch FrontDoorLock "FrontDoorLock" <doorlock>
+Switch LivingRoomWindowRemoteControl "LivingRoomWindowRemoteControl" <remotecontrol>
+Contact FrontDoor "FrontDoor[%s]" <frontdoor>
+Contact GarageDoor "GarageDoor[%s]" <garagedoor>
+Contact LivingRoomWindow "LivingRoomWindow[%s]"
+Contact KitchenWindow "KitchenWindow[%s]"
+Number LivingroomTemperature "LivingroomTemperature [%.1f °F]" <temperature>
+Dimmer KitchenDimmerLight "KitchenDimmerLight"
+Number OutsideTemperature  "OutsideTemperature [%.1f °F]" <temperature>
+Rollershutter LivingRoomRollerShutter "LivingRoomRollerShutter"
+DateTime CurrentDate "Date [%1$tA, %1$td.%1$tm.%1$tY]" <calendar> { channel="ntp:ntp:demo:dateTime" }
+Switch SurveillanceCamera "SurveillanceCamera" <camera>
+Switch Co2Detector "Co2Detector" <carbondioxide>
+Switch SmokeDetector "SmokeDetector" <smokedetector>
+Switch SleepMode "SleepMode"
+Switch HomeMode "HomeMode"
+Switch AwayMode "AwayMode"
+Switch WaterValve "WaterValve"
+Switch WaterLeakDetector "WaterLeakDetector"
+Switch BedRoomWindow "BedRoomWindow"
+Switch VacationMode "VacationMode"
+Switch BedRoomLight "BedRoomLight"
+Switch AC "AC"
+Number Illuminance "Illuminance [%.1f LUX]"
+Switch MyAppliances "MyAppliances"
+Switch FireSprinkler "FireSprinkler"
+
+String MyCarLocString
+Location MyCarLocation
+Location MyHomeLocation
+Number DistanceFromHome "DistanceFromHome[%d]" <distance>

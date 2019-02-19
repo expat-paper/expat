@@ -1,0 +1,35 @@
+Policy P1:
+    Invariant PI1:   
+		Situation: action_device = WaterValve and action_command = OFF and state(WaterLeakDetector) = ON
+		Desire: Not Expect  
+		Expectation: state(SmokeDetector) = ON
+    Invariant PI2:
+		Situation: state(LivingRoomWindowRemoteControl) = ON and state(BedRoomLight) = ON and state(LivingRoomLight) = ON and state(BedRoomWindow) = ON
+		Desire: Not Expect
+		Expectation: state(SleepMode) = ON
+    Invariant PI3:
+		Situation: any
+		Desire: Not Expect
+		Expectation: state(SurveillanceCamera) = OFF
+    Invariant PI4:
+		Situation: state(VacationMode) = ON
+		Desire: Not Expect
+		Expectation: state(BedRoomWindow) = ON and state(BedRoomLight) = ON
+    Invariant PI5:
+		Situation: any
+		Desire: Not Expect
+		Expectation: state(FrontDoorLock) = OFF
+    Invariant PI6:
+		Situation: state(Heating) = ON
+		Desire: Not Expect
+		Expectation: state(AC) = ON
+    Invariant PI7:
+		Situation: state(HomeMode) = OFF
+		Desire: Expect
+		Expectation: state(CeilingFan) = OFF and state(LivingRoomWindowRemoteControl) = OFF and state(BedRoomLight) = OFF and state(LivingRoomLight) = OFF and 	state(BedRoomWindow) = OFF
+    Invariant PI8:
+		Situation: state(LivingRoomWindowRemoteControl) = ON
+		Desire: Expect
+		Expectation: state(AC) = OFF and state(Heating) = OFF
+
+check consistency
