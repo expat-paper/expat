@@ -39,6 +39,6 @@
 
 * **syntax-highlighter**: In this folder, you can find a very simple syntax highlighter of UEI for Sublime or TextMate. You can install it, if you wish.
 
-* **simulation**: This folder contains a sample policy and a test rule, both defined by a user that can be fed into `expat.py` as well as a sample instrumented rules file (i.e., `inst_user.rules`). This folder also contains `testbed-config` subfolder including the OpenHAB necessary config files to simulate a virtual smart home environment.
+* **simulation**: This folder contains a sample policy and a test rule, both defined by a user that can be fed into `expat.py` as well as a sample instrumented rules file (i.e., `inst_user.rules`). This folder also contains `testbed-config` subfolder including the OpenHAB necessary config files to simulate a virtual smart home environment. For more details, [read this](simulation/testbed_config/README.md).
 
 * **device_list.csv**: This csv file contains the list of devices used in defining device data type in z3. Each row includes the item name (exactly the same as what defined in openhab `.items` config file) and its type (i.e., Switch, Contact, etc).
