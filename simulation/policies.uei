@@ -12,9 +12,9 @@ Policy P1:
 		Desire: Not Expect
 		Expectation: state(SurveillanceCamera) = OFF
     Invariant PI4:
-		Situation: state(VacationMode) = ON
+		Situation: state(BedRoomWindow) = ON and state(BedRoomLight) = ON
 		Desire: Not Expect
-		Expectation: state(BedRoomWindow) = ON and state(BedRoomLight) = ON
+		Expectation: state(VacationMode) = ON
     Invariant PI5:
 		Situation: any
 		Desire: Not Expect
@@ -24,9 +24,9 @@ Policy P1:
 		Desire: Not Expect
 		Expectation: state(AC) = ON
     Invariant PI7:
-		Situation: state(HomeMode) = OFF
+		Situation: state(CeilingFan) = ON and state(LivingRoomWindowRemoteControl) = ON and state(BedRoomLight) = ON and state(LivingRoomLight) = ON and state(BedRoomWindow) = ON
 		Desire: Expect
-		Expectation: state(CeilingFan) = OFF and state(LivingRoomWindowRemoteControl) = OFF and state(BedRoomLight) = OFF and state(LivingRoomLight) = OFF and 	state(BedRoomWindow) = OFF
+		Expectation: state(HomeMode) = ON
     Invariant PI8:
 		Situation: state(LivingRoomWindowRemoteControl) = ON
 		Desire: Expect
